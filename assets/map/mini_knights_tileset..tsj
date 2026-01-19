@@ -1,0 +1,14 @@
+{ "columns":10,
+ "image":"..\/..\/Downloads\/MiniK_Tileset_For_Tiled.png",
+ "imageheight":608,
+ "imagewidth":320,
+ "margin":0,
+ "name":"mini_knights_tileset",
+ "spacing":0,
+ "tilecount":190,
+ "tiledversion":"1.11.2",
+ "tileheight":32,
+ "tilewidth":32,
+ "type":"tileset",
+ "version":"1.10"
+}
