@@ -1,6 +1,7 @@
 from os import path
 import json
 from utils import load_sprite_imgs
+import pygame
 
 # Importing the world images
 world_imgs = load_sprite_imgs(['world'], 'bg.png')
@@ -10,7 +11,7 @@ world_imgs = load_sprite_imgs(['world'], 'bg.png')
   ramp_1, rock_1, rock_2
 ) = world_imgs.values()
 
-def generate_map():
+def generate_map() -> list:
   base = path.dirname(__file__)
   absolute = path.join(base, 'assets', 'map', 'map_1.tmj')
   tile_type_list = []
@@ -34,7 +35,7 @@ def generate_map():
   return map_list
 
 
-def draw_map(list, surf, tile_size):
+def draw_map(list: list, surf: pygame.Surface, tile_size: int) -> None:
   for y in range(len(list)):
     for x in range(len(list[y])):
       if list[y][x] != 0:
