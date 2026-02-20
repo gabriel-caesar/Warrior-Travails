@@ -31,8 +31,9 @@ class Player(pygame.sprite.Sprite, Entity):
     
     self.animate(player_imgs)
 
-    self.attack(enemies_list)
+    self.combat(enemies_list)
 
+    # Refreshes the guard and attack cooldown
     self.refresh_cooldown()
 
     # Gravity & collisions logic

@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING
 
 from utils import TILE_SIZE, SCREEN_X, Tile
 from random import randint
-from events import DamageEvent, event_queue
+from events import DamageEvent, BlockEvent, event_queue
 
 if TYPE_CHECKING:
   from enemy import Enemy
@@ -157,11 +157,11 @@ class Entity():
     self.flip = (self.direction == 'left')
 
     # == Lifecycle controlled animations ==
-    if self.damage_lock:
+    if self.damage_lock and not self.attack_lock:
       self.player_frames = [ damage_1, damage_2 ]
 
     # == Lifecycle controlled animations ==
-    elif self.attack_lock:
+    elif self.attack_lock and not self.damage_lock:
       self.player_frames = [ walk_2, attack_1 ]
 
     # == Lifecycle controlled animations ==
@@ -205,7 +205,7 @@ class Entity():
       self.rect = self.image.get_rect(midbottom = (self.pos[0], self.pos[1]))
       
 
-  def attack(self, enemies_list: list[Enemy]) -> None:
+  def combat(self, enemies_list: list[Enemy]) -> None:
     if self.attacking:
       # Attack hitbox dimensions
       attack_width = 16 
@@ -220,34 +220,53 @@ class Entity():
         self.attack_hitbox = pygame.Rect(self.pos[0], self.pos[1], attack_width, attack_height)
         self.attack_hitbox.right = self.rect.left
 
+
       # Loop through every enemy to find out which one is being attacked
       for defender in enemies_list:
-        if self.attack_hitbox.colliderect(defender.rect) and not defender.dead_lock:
+        # Combatents facing the opposite direction and defender is guarding
+        defending = self.direction != defender.direction and defender.guarding
 
-          # Handling damage animation
-          defender.animation_state = 'damage'
-          defender.damage_lock = True
-          defender.animation_index = 0
-
-          # Take damage
-          dmg = DamageEvent(randint(14, 20), defender)
-          defender.hp -= dmg.val
-          event_queue.append(dmg)
-
-          # Handle defender's death
-          if defender.hp <= 0: 
-            defender.dead_lock = True
-            self.attacking = False # Helps the bot in not getting stuck in a attacking loop
-            return
+        if self.attack_hitbox.colliderect(defender.rect) and not defender.dead_lock and not defending:
+          self.attack(defender)
+          
+        if self.attack_hitbox.colliderect(defender.rect) and defending:
+          self.defend(defender)
 
     else:
+      # Clear the attack hitbox if the entity is not attacking
       self.attack_hitbox = ''
 
+  def attack(self, defender: Entity):
+    # Handling damage animation
+    self.attacking = True
+    defender.animation_state = 'damage'
+    defender.damage_lock = True
+    defender.animation_index = 0
+
+    # Take damage
+    dmg = DamageEvent(randint(14, 20), defender)
+    defender.hp -= dmg.val
+    event_queue.append(dmg)
+
+    # Handle defender's death
+    if defender.hp <= 0: 
+      defender.dead_lock = True
+      return
+    
+  def defend(self, defender: Entity) -> None:
+    defender.guard_cooldown = 120
+    defender.guarding = False
+    block = BlockEvent(defender)
+    event_queue.append(block)
+
   def refresh_cooldown(self) -> None:
-    # Attack cooldown control
+    # General cooldown control
     if self.attack_cooldown > 0:
-      self.attacking = False # Stops attacking
-      self.attack_cooldown -= 1 # Refreshes the cooldown    
+      self.attack_cooldown -= 1
+      self.attacking = False
+    if self.guard_cooldown > 0:
+      self.guard_cooldown -= 1
+
 
   def kill_entity(self) -> None:
     if self.vanish_timer == -10:
@@ -285,7 +304,7 @@ class Entity():
       self.attack_lock = True
       return 'attack'
 
-    elif self.movement[0] != 0:
+    elif self.movement[0] != 0 and not self.attacking:
       return 'run'
 
     elif self.guarding:
@@ -303,7 +322,7 @@ class Entity():
     # to prevent broken animation
     if (self.attack_lock and 
         self.direction == "left" and 
-        self.animation_index > 1 and 
+        self.animation_index > 1 and
         not self.damage_lock):
       
       offset = pygame.Vector2(-12, 0)

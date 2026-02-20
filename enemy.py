@@ -35,6 +35,7 @@ class Enemy(pygame.sprite.Sprite, Entity):
     self.patrol_index = 0
     self.patrol_factor = -1
     self.attack_cooldown = 60
+    self.guard_cooldown = 60
 
   def patrol(self, collisions: dict) -> None:
 
@@ -86,7 +87,6 @@ class Enemy(pygame.sprite.Sprite, Entity):
         self.movement[0] = 1 # Move right
         return True
 
-    # If player died, kill aggro
     return False
 
     
@@ -113,7 +113,7 @@ class Enemy(pygame.sprite.Sprite, Entity):
       self.movement[0] = 0
       if self.attack_cooldown == 0:
         self.attacking = True
-        self.attack([ player ]) # So the function can iterate through a list
+        self.combat([ player ]) # So the function can iterate through a list
         self.attack_cooldown = 60
 
   def update(self, tile_list: list, player: Player, screen: pygame.Surface) -> None:
@@ -138,6 +138,7 @@ class Enemy(pygame.sprite.Sprite, Entity):
       self.chase_player(player, screen)
     else:
       self.patrol(collisions)
+      self.attacking = False # Helps the bot to not get stuck in the attacking animation
     
     if self.dead_lock:
       self.kill_entity()

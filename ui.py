@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING
 
 import pygame
 from os import path
+from utils import load_image
 
 if TYPE_CHECKING:
   from player import Player
@@ -11,6 +12,7 @@ if TYPE_CHECKING:
 COLOR_1 = '#050b24'
 COLOR_2 = '#F8A845'
 COLOR_3 = '#950A0A'
+COLOR_4 = "#EADD2C"
 
 def get_font(size: int) -> pygame.Font:
   base = path.dirname(__file__)
@@ -18,7 +20,7 @@ def get_font(size: int) -> pygame.Font:
   return pygame.font.Font(fontpath, size)
 
 class UI():
-  def __init__(self, surf: pygame.Surface):
+  def __init__(self, surf: pygame.Surface | None):
     self.screen = surf
   
   def unit_hpbar(self, entity: Entity, color: str = '') -> None:
@@ -65,7 +67,7 @@ class UI():
     text_surf = text_font.render(text_content, False, color)
 
     return text_surf
-
+  
   def player_hpbar(self, player: Player) -> None:
     bar_height = 40
     bar_width = 400
@@ -163,3 +165,9 @@ class UI():
     text_rect = dmg_surf.get_rect(midbottom = entity.rect.midtop)
     
     return dmg_surf, text_rect
+  
+  def block_bubble(self, text: str, entity: Entity) -> tuple:
+    block_surf = self.create_text(10, text, COLOR_4)
+    text_rect = block_surf.get_rect(midbottom = entity.rect.midtop)
+    
+    return block_surf, text_rect
