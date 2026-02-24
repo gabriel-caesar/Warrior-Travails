@@ -1,8 +1,9 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
 
-from utils import load_sprite_imgs
+from utils import load_sprite_imgs, load_sound
 from entity import Entity
+from entitysound import EntitySound
 import pygame
 
 if TYPE_CHECKING:
@@ -12,10 +13,11 @@ if TYPE_CHECKING:
 # Animation imports
 player_imgs = load_sprite_imgs(['player'])
 
-class Player(pygame.sprite.Sprite, Entity):
+class Player(pygame.sprite.Sprite, Entity, EntitySound):
   def __init__(self, hp: int, pos: list):
     pygame.sprite.Sprite.__init__(self)
     Entity.__init__(self, hp, pos)
+    EntitySound.__init__(self, 'warrior')
 
     self.image = player_imgs['idle_1']
     self.rect = self.image.get_rect(midbottom = pos)
@@ -24,6 +26,8 @@ class Player(pygame.sprite.Sprite, Entity):
     self.attack_cooldown = 0
     self.guard_cooldown = 0
     self.name = 'Warrior'
+
+    self.setvolume(0.1) # Setting a standard volume for all sound effects
 
   def update(self, tile_list: list[Tile], enemies_list: list[Enemy]) -> None:
 

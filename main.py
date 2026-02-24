@@ -1,26 +1,51 @@
-from utils import load_image, TILE_SIZE, SCREEN_X, SCREEN_Y, build_tile_list
+from utils import load_image, TILE_SIZE, SCREEN_X, SCREEN_Y, build_tile_list, load_sound
 from player import Player
 from enemy import Enemy
-from ui import UI, COLOR_2, COLOR_3
 from events import event_queue
-from element import Element
+from random import randint
+from ui import UI, COLOR_4
+from buttons import get_menu_ui, get_options_ui
 
 import pygame
 import sys
 import map
 
+pygame.mixer.pre_init(44100, -16, 2, 512) 
 pygame.init()
-# Device display metadata object
-info = pygame.display.Info()
-SCREEN_X = info.current_w
-SCREEN_Y = info.current_h
+pygame.mixer.set_num_channels(64) # Handles more sounds at once
 clock = pygame.Clock()
-screen = pygame.display.set_mode((SCREEN_X, SCREEN_Y), pygame.FULLSCREEN)
+screen = pygame.display.set_mode((SCREEN_X, SCREEN_Y))
 pygame.display.set_caption('Warrior Travails')
 ui = UI(screen) # Instance of the UI class
+pygame.mouse.set_visible(False) # Hidding the original OS cursor
+
+def quitgame():
+  pygame.quit()
+  sys.exit()
+
+def handle_jump(player: Player) -> None:
+  # Handle audio
+  jumpsounds = player.sounds['jumpsound']
+  jumpindex = randint(0, len(jumpsounds) - 1)
+  jumpsounds[jumpindex].play()
+
+  # Handle logic
+  player.jump_pressed = True
+  player.vertical_velocity = -16
+
+def getmusic(musicname: str, subpath: list, vol: float) -> pygame.mixer.music:
+  music = load_sound(musicname, subpath, True)
+  pygame.mixer.music.set_volume(vol)
+  pygame.mixer.music.play(-1)
+  return music
+
+def add_mob(name: str, quantity: int, pos: list) -> None:
+  for _ in range(quantity):
+    mob = Enemy(name, 90, pos)
+    enemiesgroup.add(mob)
 
 # Initializing the player
-player = Player(950, [500, 300])
+player = Player(100, [500, 300])
 playergroup = pygame.sprite.GroupSingle()
 playergroup.add(player)
 
@@ -42,31 +67,21 @@ tile_list = build_tile_list(map_list)
 j_key_pressed = False
 k_key_pressed = False
 
-# Flag to signal if the game started to be played
+# Flag to signal if the game state
 in_gameplay = False
-
-# Flag to signal if the game should render the main menu
 in_main_menu = True
+in_options = False
 
-title_imgdata = { 'imgname': 'header_art.png', 'subpath': ['graphics', 'ui', 'menu'] }
-title_textdata =  { 'size': 20, 'content': 'Warrior Travails', 'color': COLOR_2}
-title_pos = (SCREEN_X // 2, 300) 
+# Audio loading
+music_volume = 0.2
+current_music = getmusic('menu_song.mp3', ['sound', 'ui'], music_volume)
+music_drag = False # For the UI slider
 
-# Creating the game title text
-game_title = Element(title_imgdata, title_textdata, title_pos)
-game_title.scale(double = True)
+# Main menu buttons
+game_title, newgame_button, options_button, quit_button = get_menu_ui()
 
-newgame_imgdata = { 'imgname': 'button_1.png', 'subpath': ['graphics', 'ui', 'menu'] }
-newgame_textdata = { 'size': 14, 'content': 'New Game', 'color': COLOR_2 }
-newgame_pos = (SCREEN_X // 2, 400)
-
-newgame_button = Element(newgame_imgdata, newgame_textdata, newgame_pos)
-
-quit_imgdata = { 'imgname': 'button_1.png', 'subpath': ['graphics', 'ui', 'menu'] }
-quit_textdata = { 'size': 14, 'content': 'Quit', 'color': COLOR_2 }
-quit_pos = (SCREEN_X // 2, 460)
-
-quit_button = Element(quit_imgdata, quit_textdata, quit_pos)
+# Options buttons
+back_button, game_options, frame, music_slider = get_options_ui(music_volume)
 
 # Background images
 main_menu_bg = load_image('main_menu_bg.png', ['graphics', 'ui', 'menu'])
@@ -76,33 +91,121 @@ gameplay_bg = load_image('bg.png', ['graphics', 'world'])
 while in_main_menu:
   screen.blit(main_menu_bg, (0, 0)) # rendering the background
 
+  # Mouse UI logic
+  mx, my = pygame.mouse.get_pos()
+  click = pygame.mouse.get_pressed()
+  if (click[0] or click[2]):
+    curr_mouse_img = load_image('cursor_down.png', ['graphics', 'ui', 'cursor'])
+    # Smaller rect so button hovering can't overlap
+    mouse_click_area = pygame.Rect(mx, my, curr_mouse_img.get_width() // 4, curr_mouse_img.get_height() // 4)
+  else:
+    curr_mouse_img = load_image('cursor.png', ['graphics', 'ui', 'cursor'])
+    # Smaller rect so button hovering can't overlap
+    mouse_click_area = pygame.Rect(mx, my, curr_mouse_img.get_width() // 4, curr_mouse_img.get_height() // 4)
+
   # Rendering menu UI
-  game_title.render(screen)
-  newgame_button.render(screen)
-  quit_button.render(screen)
+  if in_options:
+    game_options.render(screen)
+    back_button.render(screen) 
+    frame.render(screen)   
+
+    # Music slider
+    music_slider.render(screen)  
+    music_slider.render_text((music_slider.rect.right + 30, music_slider.rect.top ), screen)
+    music_slider.render_cursor(screen)
+
+    # If the cursor hovers on the slider's cursor
+    if mouse_click_area.colliderect(music_slider.cursor_rect):
+      curr_mouse_img = load_image('cursor_open.png', ['graphics', 'ui', 'cursor'])
+    else:
+      curr_mouse_img = load_image('cursor_down.png', ['graphics', 'ui', 'cursor'])
+
+    if music_drag:
+      # Dragging
+      curr_mouse_img = load_image('cursor_fist.png', ['graphics', 'ui', 'cursor'])
+      music_volume = music_slider.slide(mx)
+      pygame.mixer.music.set_volume(music_volume)
+
+    # Hovering logic
+    back_button.hover(mouse_click_area.colliderect(back_button.rect), COLOR_4)
+
+  else:
+    game_title.render(screen)
+    newgame_button.render(screen)
+    options_button.render(screen)
+    quit_button.render(screen)
+    
+    # Hovering logic  
+    newgame_button.hover(mouse_click_area.colliderect(newgame_button.rect), COLOR_4)
+    options_button.hover(mouse_click_area.colliderect(options_button.rect), COLOR_4)
+    quit_button.hover(mouse_click_area.colliderect(quit_button.rect), COLOR_4)
 
   # Event loop area
   for event in pygame.event.get():
     if event.type == pygame.QUIT:
-      pygame.quit()
-      sys.exit()
+      quitgame()
 
     if event.type == pygame.KEYDOWN:
-      if event.key == pygame.K_q:
-        pygame.quit()
-        sys.exit()
+      if event.key == pygame.K_ESCAPE:
+        quitgame()
 
+    # If mouse left click is down
+    if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+
+      # Back button in the options menu
+      if in_options:
+        if mouse_click_area.colliderect(back_button.rect):
+          back_button.sound.play()
+          in_options = False
+
+        # Handling button sound here for dragging to avoid continuos sound triggering
+        if mouse_click_area.colliderect(music_slider.cursor_rect):
+          music_drag = True
+          music_slider.sound.play()
+
+      elif not in_options:
+        # Quit button
+        if mouse_click_area.colliderect(quit_button.rect):
+          quit_button.sound.play()
+          quitgame()
+
+        # New game button
+        elif mouse_click_area.colliderect(newgame_button.rect):
+          current_music = getmusic('forest_song.mp3', ['sound', 'gameplay'], 0.4)
+          in_main_menu = False
+          in_gameplay = True    
+          newgame_button.sound.play()
+
+        # Options button
+        elif mouse_click_area.colliderect(options_button.rect):
+          in_options = True
+          options_button.sound.play() 
+
+    if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+      if music_drag:
+        music_drag = False
+        music_slider.sound.play()
+
+  # Rendering the custom cursor
+  screen.blit(curr_mouse_img, mouse_click_area)
 
   pygame.display.update()
   clock.tick(60)
 
 while in_gameplay:
-    
+
+  # Rendering the gameplay background
+  screen.blit(gameplay_bg, (0,0)) 
+  map.draw_map(map_list, screen, TILE_SIZE)
+
   # Event loop area
   for event in pygame.event.get():
     if event.type == pygame.QUIT:
       pygame.quit()
       sys.exit()
+
+    # Keyboard keys instance  
+    key = pygame.key.get_pressed()
 
     if event.type == pygame.KEYDOWN:
 
@@ -111,8 +214,10 @@ while in_gameplay:
         player.attacking = False # Player stops attacking while running
 
         if player.air_timer < 6:
-          player.jump_pressed = True
-          player.vertical_velocity = -16
+          handle_jump(player)
+
+      if event.key == pygame.K_ESCAPE:
+        quitgame()
 
       # Move horizontally
       if event.key == pygame.K_a:
@@ -140,9 +245,12 @@ while in_gameplay:
           player.attack_cooldown = 60
 
       # Kill player (test)
-      if event.key == pygame.K_q:
+      if key[pygame.K_LSHIFT] and key[pygame.K_q]:
         player.dead_lock = True
 
+      # Add mobs
+      if key[pygame.K_LSHIFT] and key[pygame.K_1]:
+        add_mob('skeleton_1', 1, [200, 250])
 
     if event.type == pygame.KEYUP:
 
@@ -163,10 +271,6 @@ while in_gameplay:
       if event.key == pygame.K_j:
         j_key_pressed = False
 
-  # Main blitting area
-  screen.blit(gameplay_bg, (0, 0)) # rendering the background
-  map.draw_map(map_list, screen, TILE_SIZE)
-
   # Enemies render and update
   enemies_list = enemiesgroup.sprites()
   for e in enemies_list:
@@ -175,7 +279,8 @@ while in_gameplay:
 
   # Player render and update
   player.draw(screen)
-  player.update(tile_list, enemies_list)
+  # Update only living enemies and ignore dead ones
+  player.update(tile_list, [enemy for enemy in enemies_list if not enemy.dead_lock])
 
   # Draw the big player HP icon bar
   ui.player_hpbar(player)

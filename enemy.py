@@ -1,7 +1,8 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
 
-from utils import load_sprite_imgs, load_image
+from utils import load_sprite_imgs, load_image, load_sound
+from entitysound import EntitySound
 from entity import Entity
 import pygame
 
@@ -17,7 +18,7 @@ aggro_tolerance_zone = 50
 # Symbol that will show on top of an aggro'd creature
 aggro_pointer = load_image('aggro_pointer.png', ['graphics', 'enemies'])
 
-class Enemy(pygame.sprite.Sprite, Entity):
+class Enemy(pygame.sprite.Sprite, Entity, EntitySound):
   def __init__(self, name: str, hp: int, pos: list):
     pygame.sprite.Sprite.__init__(self)
     Entity.__init__(self, hp, pos)
@@ -26,6 +27,8 @@ class Enemy(pygame.sprite.Sprite, Entity):
     if name == 'skeleton_1':
       global enemy_imgs
       enemy_imgs = load_sprite_imgs(['enemies', 'skeleton_1'])
+      # Audio for skeletons
+      EntitySound.__init__(self, 'skeleton')
 
     self.image = enemy_imgs['idle_1']
     self.rect = self.image.get_rect(midbottom = pos)
@@ -36,6 +39,8 @@ class Enemy(pygame.sprite.Sprite, Entity):
     self.patrol_factor = -1
     self.attack_cooldown = 60
     self.guard_cooldown = 60
+
+    self.setvolume(0.1) # Setting a standard volume for all sound effects
 
   def patrol(self, collisions: dict) -> None:
 

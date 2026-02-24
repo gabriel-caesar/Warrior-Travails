@@ -61,3 +61,25 @@ def build_tile_list(raw_list: list) -> list[Tile]:
         new_tile_list.append(tile)
 
   return new_tile_list
+
+def load_sound(soundfile: str, subpath: list, music: bool = False) -> pygame.Sound:
+  base = path.dirname(__file__)
+  soundpath = path.join(base, *subpath, soundfile)
+  sound = pygame.mixer.Sound(soundpath)
+  if music:
+    sound = pygame.mixer.music.load(soundpath)
+  return sound
+
+def load_allsounds(prefix: str, subpath: list, entityname: str) -> list:
+  base = path.dirname(__file__)
+  imgpath = path.join(base, *subpath, entityname)
+  files = listdir(imgpath)
+
+  sounds = []
+
+  for file in files:
+    if prefix in file: # If the file name matches the file we're scanning, append it
+      s = load_sound(file, [*subpath, entityname])
+      sounds.append(s)
+
+  return sounds

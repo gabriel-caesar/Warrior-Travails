@@ -1,9 +1,9 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
 
+from events import DamageEvent, BlockEvent, event_queue
 from utils import TILE_SIZE, SCREEN_X, Tile
 from random import randint
-from events import DamageEvent, BlockEvent, event_queue
 
 if TYPE_CHECKING:
   from enemy import Enemy
@@ -206,7 +206,12 @@ class Entity():
       
 
   def combat(self, enemies_list: list[Enemy]) -> None:
-    if self.attacking:
+    if self.attacking:      
+      # Handling the swing sounds
+      swingsounds = self.sounds['swingsound']
+      swingindex = randint(0, len(swingsounds) - 1)
+      swingsounds[swingindex].play()
+
       # Attack hitbox dimensions
       attack_width = 16 
       attack_height = 32
@@ -238,7 +243,6 @@ class Entity():
 
   def attack(self, defender: Entity):
     # Handling damage animation
-    self.attacking = True
     defender.animation_state = 'damage'
     defender.damage_lock = True
     defender.animation_index = 0
@@ -250,10 +254,16 @@ class Entity():
 
     # Handle defender's death
     if defender.hp <= 0: 
+      defender.sounds['deathsound'].play()
       defender.dead_lock = True
       return
+    else:
+      damagesounds = defender.sounds['damagesound']
+      dmgindex = randint(0, len(damagesounds) - 1)
+      damagesounds[dmgindex].play()
     
   def defend(self, defender: Entity) -> None:
+    defender.sounds['blocksound'].play()
     defender.guard_cooldown = 120
     defender.guarding = False
     block = BlockEvent(defender)

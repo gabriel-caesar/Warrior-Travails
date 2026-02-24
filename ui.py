@@ -160,7 +160,6 @@ class UI():
     pygame.draw.rect(self.screen, COLOR_3 if key_pressed else COLOR_2, icon_key_border, 2)
 
   def dmg_bubble(self, val: int, entity: Entity) -> tuple:
-
     dmg_surf = self.create_text(10, str(val), COLOR_2 if entity.name == 'Warrior' else COLOR_3)
     text_rect = dmg_surf.get_rect(midbottom = entity.rect.midtop)
     
@@ -171,3 +170,39 @@ class UI():
     text_rect = block_surf.get_rect(midbottom = entity.rect.midtop)
     
     return block_surf, text_rect
+  
+class Slider(UI):
+  def __init__(self, pos: tuple, vol: float | None):
+    UI.__init__(self, None)
+    self.image = load_image('slider.png', ['graphics', 'ui', 'menu'])
+    self.rect = self.image.get_rect(left = pos[0], top = pos[1])
+
+    cursor_x = (self.rect.width * vol) + self.rect.left
+    cursor_x -= 10 # Applying a margin so the cursor doesn't overflow the slider rect
+    self.cursor = load_image('slider_cursor.png', ['graphics', 'ui', 'menu'])
+    self.cursor_rect = self.cursor.get_rect(center = (cursor_x, self.rect.top + 8))
+
+    self.text = None
+    self.current_vol = vol
+    self.sound = None
+
+  def slide(self, mx: int) -> float:
+    offset = 12
+
+    # Only update the cursor if it is within the correct boundaries
+    if mx >= self.rect.left and mx <= self.rect.right - offset:
+      self.cursor_rect.x = mx
+
+    position_val = mx - self.rect.left
+    updated_vol = round(position_val / self.rect.width, 1)
+
+    return updated_vol
+
+  def render(self, screen: pygame.Surface) -> None:
+    screen.blit(self.image, self.rect)
+
+  def render_text(self, pos: tuple, screen: pygame.Surface) -> None:
+    screen.blit(self.text, self.text.get_rect(left = pos[0], top = pos[1]))
+  
+  def render_cursor(self, screen: pygame.Surface) -> pygame.Rect:
+    screen.blit(self.cursor, self.cursor_rect)
