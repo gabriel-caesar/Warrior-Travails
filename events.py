@@ -7,6 +7,7 @@ ui = UI(None)
 if TYPE_CHECKING:
   from entity import Entity
 
+# Main event queue list
 event_queue = []
 
 class CombatEvent():
@@ -15,14 +16,18 @@ class CombatEvent():
     self.vanish_timer = 60
 
 class DamageEvent():
-  def __init__(self, val: int, entity: Entity):
+  def __init__(self, val: int, entity: Entity, hit_from: int):
     CombatEvent.__init__(self, entity)
     self.val = val
     self.ui = ui.dmg_bubble(val, entity)
-    
+    self.spawned_particles = False
+    self.hit_from = hit_from
 
 class BlockEvent():
   def __init__(self, entity: Entity):
     CombatEvent.__init__(self, entity)
     self.text = 'BLOCK'
     self.ui = ui.block_bubble(self.text, entity)
+
+  def spark_slash() -> None:
+    return

@@ -212,6 +212,8 @@ class Entity():
       swingindex = randint(0, len(swingsounds) - 1)
       swingsounds[swingindex].play()
 
+      hit_from = 0 # 0 -> None; 1 -> Left; 2 -> Right
+
       # Attack hitbox dimensions
       attack_width = 16 
       attack_height = 32
@@ -220,10 +222,12 @@ class Entity():
       if self.direction == 'right':
         self.attack_hitbox = pygame.Rect(self.pos[0], self.pos[1], attack_width, attack_height)
         self.attack_hitbox.left = self.rect.right
+        hit_from = 2
         
       if self.direction == 'left':
         self.attack_hitbox = pygame.Rect(self.pos[0], self.pos[1], attack_width, attack_height)
         self.attack_hitbox.right = self.rect.left
+        hit_from = 1
 
 
       # Loop through every enemy to find out which one is being attacked
@@ -232,7 +236,7 @@ class Entity():
         defending = self.direction != defender.direction and defender.guarding
 
         if self.attack_hitbox.colliderect(defender.rect) and not defender.dead_lock and not defending:
-          self.attack(defender)
+          self.attack(defender, hit_from)
           
         if self.attack_hitbox.colliderect(defender.rect) and defending:
           self.defend(defender)
@@ -241,14 +245,14 @@ class Entity():
       # Clear the attack hitbox if the entity is not attacking
       self.attack_hitbox = ''
 
-  def attack(self, defender: Entity):
+  def attack(self, defender: Entity, hit_from: int) -> None:
     # Handling damage animation
     defender.animation_state = 'damage'
     defender.damage_lock = True
     defender.animation_index = 0
 
     # Take damage
-    dmg = DamageEvent(randint(14, 20), defender)
+    dmg = DamageEvent(randint(14, 20), defender, hit_from)
     defender.hp -= dmg.val
     event_queue.append(dmg)
 

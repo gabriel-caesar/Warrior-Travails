@@ -1,10 +1,11 @@
 from utils import load_image, TILE_SIZE, SCREEN_X, SCREEN_Y, build_tile_list, load_sound
-from player import Player
-from enemy import Enemy
-from events import event_queue
+from buttons import get_menu_ui, get_options_ui
+from particle import particles_queue, blood_slash
+from events import event_queue, DamageEvent
 from random import randint
 from ui import UI, COLOR_4
-from buttons import get_menu_ui, get_options_ui
+from player import Player
+from enemy import Enemy
 
 import pygame
 import sys
@@ -45,7 +46,7 @@ def add_mob(name: str, quantity: int, pos: list) -> None:
     enemiesgroup.add(mob)
 
 # Initializing the player
-player = Player(100, [500, 300])
+player = Player(1000, [500, 300])
 playergroup = pygame.sprite.GroupSingle()
 playergroup.add(player)
 
@@ -117,8 +118,6 @@ while in_main_menu:
     # If the cursor hovers on the slider's cursor
     if mouse_click_area.colliderect(music_slider.cursor_rect):
       curr_mouse_img = load_image('cursor_open.png', ['graphics', 'ui', 'cursor'])
-    else:
-      curr_mouse_img = load_image('cursor_down.png', ['graphics', 'ui', 'cursor'])
 
     if music_drag:
       # Dragging
@@ -305,6 +304,14 @@ while in_gameplay:
 
   # Event queue loop
   for e in event_queue:
+    # Making sure the program doesn't spawn more particles than needed
+    if isinstance(e, DamageEvent) and not e.spawned_particles:
+      blood_color = '#ff0000' if e.entity.name == 'Warrior' else "#c4c4c4"
+      squirt_speed_factor = 3 if e.entity.dead_lock else 2
+      blood_amount = 20 if e.entity.dead_lock else 10
+      blood_slash(e.entity, e.hit_from, blood_amount, squirt_speed_factor, blood_color)
+      e.spawned_particles = True
+
     # Handling what combat event needs to be displayed
     event_surf, event_rect = e.ui
     e.vanish_timer -= 1
@@ -313,14 +320,70 @@ while in_gameplay:
       screen.blit(event_surf, event_rect)
     else:
       event_queue.remove(e)
+
+  # Particles queue loop
+  for p in particles_queue:
+    # Render the particle
+    pygame.draw.rect(screen, p.color, p.rect)
+
+    # Countdown to kill particles
+    if p.vanish_timer <= 0:
+      particles_queue.remove(p)
+    else:
+      p.vanish_timer -= 1
+
+    # Velocity resistance
+    resistance = -0.1 if p.direction == 'right' else 0.1
+    # If the particle is moving
+    if p.movement[0] != 0:
+      if p.direction == 'right' and p.movement[0] <= 0:
+        p.movement[0] = 0
+      elif p.direction == 'left' and p.movement[0] >= 0:
+        p.movement[0] = 0
+      else:
+        p.movement[0] += resistance
+
+    # Gravity & collisions logic
+    p.vertical_velocity += 0.2
+
+    # Max value of how fast the particle can fall
+    max_fall_velocity = 15
+
+    p.vertical_velocity = min(p.vertical_velocity, max_fall_velocity)
+    p.movement[1] = p.vertical_velocity
+  
+    # Don't count anything other than tiles to collide with
+    collisions = p.move(tile_list, [])
+
+    # If player collided with the ground, reset vertical_velocity and Y movement
+    if collisions['bottom'] or collisions['top']:
+      p.air_timer = 0
+      p.vertical_velocity = 0
+      p.movement[1] = 0
+    else:
+      p.air_timer += 1
+
   
   # Makes sure that suddle moving direction changes don't stop player's movement
+  step = 0.3
   if left_pressed:
-    player.movement[0] = -2
+    player.movement[0] -= step
+    if player.movement[0] <= -2:
+      player.movement[0] = -2
   elif right_pressed:
-    player.movement[0] = 2
+    player.movement[0] += step
+    if player.movement[0] >= 2:
+      player.movement[0] = 2
   else:
-    player.movement[0] = 0
+    if player.movement[0] > 0:
+      player.movement[0] -= step
+      if player.movement[0] <= 0:
+        player.movement[0] = 0
+
+    elif player.movement[0] < 0:
+      player.movement[0] += step
+      if player.movement[0] >= 0:
+        player.movement[0] = 0
 
   pygame.display.update()
   clock.tick(60)
