@@ -1,9 +1,10 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
 
-from utils import load_sprite_imgs, load_image, load_sound
+from utils import load_sprite_imgs, load_image
 from entitysound import EntitySound
 from entity import Entity
+from random import randint
 import pygame
 
 if TYPE_CHECKING:
@@ -35,8 +36,8 @@ class Enemy(pygame.sprite.Sprite, Entity, EntitySound):
     self.mask = pygame.mask.from_surface(self.image)
 
     self.aggro = False
-    self.patrol_index = 0
-    self.patrol_factor = -1
+    self.patrol_index = randint(12, 94) # Random patrol behaviors, less robotic pattern
+    self.patrol_factor = 1
     self.attack_cooldown = 60
     self.guard_cooldown = 60
 
@@ -45,20 +46,31 @@ class Enemy(pygame.sprite.Sprite, Entity, EntitySound):
   def patrol(self, collisions: dict) -> None:
 
     if not self.dead_lock and not self.damage_lock:
+      # Smooth walking step
+      walking_step = 0.05
       
       # Patrol to the right
       if self.patrol_index == 120 or collisions['left']:
-
         self.patrol_index = 120 # Resets the patrol index if a collision turned the enemy before 120
         self.patrol_factor = -1
-        self.movement[0] = 0.5
+        
 
       # Patrol to the left
       if self.patrol_index == 0 or collisions['right']:
-
         self.patrol_index = 0 # Resets the patrol index if a collision turned the enemy before 0
         self.patrol_factor = 1
-        self.movement[0] = -0.5
+
+      # If walking SMOOTHLY left
+      if self.patrol_factor == 1:
+        self.movement[0] += walking_step
+        if self.movement[0] > 0.8:
+          self.movement[0] = 0.8
+
+      # If walking SMOOTHLY right
+      elif self.patrol_factor == -1:
+        self.movement[0] -= walking_step
+        if self.movement[0] < -0.8:
+          self.movement[0] = -0.8
 
       # Increment the index
       self.patrol_index += self.patrol_factor
@@ -72,6 +84,9 @@ class Enemy(pygame.sprite.Sprite, Entity, EntitySound):
   def get_aggro(self, player: Player) -> bool:
 
     if not self.dead_lock:
+      # Smooth chasing step
+      chase_step = 0.1
+
       # Aggro rects
       aggro_rect_1 = pygame.Rect(self.rect.left, 
                             self.rect.top, 
@@ -86,10 +101,16 @@ class Enemy(pygame.sprite.Sprite, Entity, EntitySound):
       aggro_rect_2.left = self.rect.right
 
       if aggro_rect_1.colliderect(player.rect) and not player.dead_lock:
-        self.movement[0] = -1 # Move left
+        # Smoothly chase left
+        self.movement[0] -= chase_step
+        if self.movement[0] < -1:
+          self.movement[0] = -1
         return True
       elif aggro_rect_2.colliderect(player.rect) and not player.dead_lock:
-        self.movement[0] = 1 # Move right
+        # Smoothly chase right
+        self.movement[0] += chase_step
+        if self.movement[0] > 1:
+          self.movement[0] = 1 
         return True
 
     return False

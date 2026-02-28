@@ -11,23 +11,20 @@ if TYPE_CHECKING:
 event_queue = []
 
 class CombatEvent():
-  def __init__(self, entity: Entity):
+  def __init__(self, entity: Entity, hit_from: int):
     self.entity = entity
     self.vanish_timer = 60
-
-class DamageEvent():
-  def __init__(self, val: int, entity: Entity, hit_from: int):
-    CombatEvent.__init__(self, entity)
-    self.val = val
-    self.ui = ui.dmg_bubble(val, entity)
     self.spawned_particles = False
     self.hit_from = hit_from
 
+class DamageEvent():
+  def __init__(self, val: int, entity: Entity, hit_from: int):
+    CombatEvent.__init__(self, entity, hit_from)
+    self.val = val
+    self.ui = ui.dmg_bubble(val, entity)
+
 class BlockEvent():
-  def __init__(self, entity: Entity):
-    CombatEvent.__init__(self, entity)
+  def __init__(self, entity: Entity, hit_from):
+    CombatEvent.__init__(self, entity, hit_from)
     self.text = 'BLOCK'
     self.ui = ui.block_bubble(self.text, entity)
-
-  def spark_slash() -> None:
-    return

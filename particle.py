@@ -7,15 +7,15 @@ import pygame
 particles_queue = []
  
 class Particle(Entity):
-  def __init__(self, direction: str, pos: list, color: str, factor: int):
+  def __init__(self, direction: str, pos: list, color: str, factor: int, spark: bool = False):
     Entity.__init__(self, 10, pos)
     self.rect = pygame.Rect(pos[0], pos[1], randint(1, 4), randint(2, 4))
     self.direction = direction
-
     speed = uniform(0.6, 2) * factor
     self.movement = [speed if self.direction == 'right' else -speed, 0]
     self.color = color
-    self.vanish_timer = 120
+    self.vanish_timer = randint(60, 120)
+    self.spark = spark
 
 def blood_slash(entity: Entity, hit_from: int, blood_amount: int, squirt_factor: int, color: str) -> None:
   curr_direction = 'left' if hit_from == 1 else 'right'
@@ -24,7 +24,19 @@ def blood_slash(entity: Entity, hit_from: int, blood_amount: int, squirt_factor:
     # Spawn offset is what makes the blood particles feel like a squirting liquid
     spawn_offset = randint(5, 12)
     midleft = [entity.rect.midleft[0] + spawn_offset, entity.rect.midleft[1]]
-    midright = [entity.rect.midright[0] + spawn_offset, entity.rect.midright[1]]    
-    spawn_point = list(midleft if hit_from == 1 else midright) # Originally a tuple
+    midright = [entity.rect.midright[0] + spawn_offset, entity.rect.midright[1]] 
+    spawn_point = list(midright if hit_from == 1 else midleft) # Originally a tuple
     p = Particle(curr_direction, spawn_point, color, squirt_factor)
+    particles_queue.append(p)
+
+def spark_slash(entity: Entity, hit_from: int, spark_amount: int, spark_factor: int, color: str) -> None:
+  curr_direction = 'left' if hit_from == 1 else 'right'
+
+  for _ in range(spark_amount):
+    # Spawn offset is what makes the blood particles feel like a squirting liquid
+    spawn_offset = randint(5, 12)
+    midleft = [entity.rect.midleft[0] + spawn_offset, entity.rect.midleft[1]]
+    midright = [entity.rect.midright[0] + spawn_offset, entity.rect.midright[1]] 
+    spawn_point = list(midright if hit_from == 1 else midleft) # Originally a tuple
+    p = Particle(curr_direction, spawn_point, color, spark_factor, spark = True)
     particles_queue.append(p)

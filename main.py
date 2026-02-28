@@ -1,7 +1,7 @@
 from utils import load_image, TILE_SIZE, SCREEN_X, SCREEN_Y, build_tile_list, load_sound
+from events import event_queue, DamageEvent, BlockEvent
 from buttons import get_menu_ui, get_options_ui
-from particle import particles_queue, blood_slash
-from events import event_queue, DamageEvent
+from particle import particles_queue, blood_slash, spark_slash
 from random import randint
 from ui import UI, COLOR_4
 from player import Player
@@ -44,6 +44,58 @@ def add_mob(name: str, quantity: int, pos: list) -> None:
   for _ in range(quantity):
     mob = Enemy(name, 90, pos)
     enemiesgroup.add(mob)
+
+def particles_loop(
+    particles: list, 
+    vanish_step: int, 
+    vertical_velocity: int | float, 
+    max_fall_velocity: int | float, 
+    velocity_resistance: bool = False
+  ) -> None:
+  for p in particles:
+    # Render the particle
+    pygame.draw.rect(screen, p.color, p.rect)
+
+    # Countdown to kill particles
+    if p.vanish_timer <= 0:
+      particles_queue.remove(p)
+    else:
+      p.vanish_timer -= vanish_step
+
+    if velocity_resistance:
+      # Velocity resistance
+      resistance = -0.1 if p.direction == 'right' else 0.1
+      # If the particle is moving
+      if p.movement[0] != 0:
+        if p.direction == 'right' and p.movement[0] <= 0:
+          p.movement[0] = 0
+        elif p.direction == 'left' and p.movement[0] >= 0:
+          p.movement[0] = 0
+        else:
+          p.movement[0] += resistance
+
+    # Gravity
+    p.vertical_velocity += vertical_velocity
+    
+    # Max value of how fast the particle can fall
+    max_fall_velocity = max_fall_velocity
+
+    # As the velocity grows, cap the fall speed
+    p.vertical_velocity = min(p.vertical_velocity, max_fall_velocity)
+
+    # Add the vertical velocity to the y accelerator
+    p.movement[1] = p.vertical_velocity
+
+    # Handle collisions
+    collisions = p.move(tile_list)
+
+    # If player collided with the ground, reset vertical_velocity and Y movement
+    if collisions['bottom'] or collisions['top']:
+      p.air_timer = 0
+      p.vertical_velocity = 0
+      p.movement[1] = 0
+    else:
+      p.air_timer += 1
 
 # Initializing the player
 player = Player(1000, [500, 300])
@@ -249,7 +301,7 @@ while in_gameplay:
 
       # Add mobs
       if key[pygame.K_LSHIFT] and key[pygame.K_1]:
-        add_mob('skeleton_1', 1, [200, 250])
+        add_mob('skeleton_1', 1, [250, 190])
 
     if event.type == pygame.KEYUP:
 
@@ -274,6 +326,8 @@ while in_gameplay:
   enemies_list = enemiesgroup.sprites()
   for e in enemies_list:
     e.draw(screen)
+  # Filtering only the living creatures
+  enemies_list = list(filter(lambda e: not e.dead_lock, enemies_list))
   enemiesgroup.update(tile_list, player, screen)
 
   # Player render and update
@@ -311,6 +365,12 @@ while in_gameplay:
       blood_amount = 20 if e.entity.dead_lock else 10
       blood_slash(e.entity, e.hit_from, blood_amount, squirt_speed_factor, blood_color)
       e.spawned_particles = True
+    elif isinstance(e, BlockEvent) and not e.spawned_particles:
+      spark_color = "#f8df71"
+      spark_amount = 12
+      spark_speed_factor = 2
+      spark_slash(e.entity, e.hit_from, spark_amount, spark_speed_factor, spark_color)
+      e.spawned_particles = True
 
     # Handling what combat event needs to be displayed
     event_surf, event_rect = e.ui
@@ -321,65 +381,40 @@ while in_gameplay:
     else:
       event_queue.remove(e)
 
-  # Particles queue loop
-  for p in particles_queue:
-    # Render the particle
-    pygame.draw.rect(screen, p.color, p.rect)
+  # Separating particles
+  blood_particles = [p for p in particles_queue if not p.spark]
+  spark_particles = [p for p in particles_queue if p.spark]
 
-    # Countdown to kill particles
-    if p.vanish_timer <= 0:
-      particles_queue.remove(p)
-    else:
-      p.vanish_timer -= 1
+  # Spark particles queue loop
+  particles_loop(spark_particles, 4, -0.1, -0.01)
 
-    # Velocity resistance
-    resistance = -0.1 if p.direction == 'right' else 0.1
-    # If the particle is moving
-    if p.movement[0] != 0:
-      if p.direction == 'right' and p.movement[0] <= 0:
-        p.movement[0] = 0
-      elif p.direction == 'left' and p.movement[0] >= 0:
-        p.movement[0] = 0
-      else:
-        p.movement[0] += resistance
-
-    # Gravity & collisions logic
-    p.vertical_velocity += 0.2
-
-    # Max value of how fast the particle can fall
-    max_fall_velocity = 15
-
-    p.vertical_velocity = min(p.vertical_velocity, max_fall_velocity)
-    p.movement[1] = p.vertical_velocity
-  
-    # Don't count anything other than tiles to collide with
-    collisions = p.move(tile_list, [])
-
-    # If player collided with the ground, reset vertical_velocity and Y movement
-    if collisions['bottom'] or collisions['top']:
-      p.air_timer = 0
-      p.vertical_velocity = 0
-      p.movement[1] = 0
-    else:
-      p.air_timer += 1
-
+  # Blood particles queue loop
+  particles_loop(blood_particles, 1, 0.05, 4, True)
   
   # Makes sure that suddle moving direction changes don't stop player's movement
-  step = 0.3
-  if left_pressed:
-    player.movement[0] -= step
+  step = 0.1
+  if left_pressed: 
+    # If player turns to the opposite direction, deaccelerate quickly     
+    player.movement[0] -= step + 0.2 if player.movement[0] > 0 else step
+    # Limit the walking speed to -2
     if player.movement[0] <= -2:
       player.movement[0] = -2
+
   elif right_pressed:
-    player.movement[0] += step
+    # If player turns to the opposite direction, deaccelerate quickly   
+    player.movement[0] += step + 0.2 if player.movement[0] < 0 else step
+    # Limit the walking speed to 2
     if player.movement[0] >= 2:
       player.movement[0] = 2
+
   else:
+    # As the player stops walking rightwards, deaccelerate smoothly
     if player.movement[0] > 0:
       player.movement[0] -= step
       if player.movement[0] <= 0:
         player.movement[0] = 0
 
+    # As the player stops walking leftwards, deaccelerate smoothly
     elif player.movement[0] < 0:
       player.movement[0] += step
       if player.movement[0] >= 0:

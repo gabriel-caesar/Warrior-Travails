@@ -239,7 +239,7 @@ class Entity():
           self.attack(defender, hit_from)
           
         if self.attack_hitbox.colliderect(defender.rect) and defending:
-          self.defend(defender)
+          self.defend(defender, hit_from)
 
     else:
       # Clear the attack hitbox if the entity is not attacking
@@ -266,11 +266,11 @@ class Entity():
       dmgindex = randint(0, len(damagesounds) - 1)
       damagesounds[dmgindex].play()
     
-  def defend(self, defender: Entity) -> None:
+  def defend(self, defender: Entity, hit_from: int) -> None:
     defender.sounds['blocksound'].play()
     defender.guard_cooldown = 120
     defender.guarding = False
-    block = BlockEvent(defender)
+    block = BlockEvent(defender, hit_from)
     event_queue.append(block)
 
   def refresh_cooldown(self) -> None:
