@@ -35,7 +35,7 @@ class Enemy(pygame.sprite.Sprite, Entity, EntitySound):
     self.rect = self.image.get_rect(midbottom = pos)
     self.mask = pygame.mask.from_surface(self.image)
 
-    self.aggro = False
+    self.aggro = (False, False)
     self.patrol_index = randint(12, 94) # Random patrol behaviors, less robotic pattern
     self.patrol_factor = 1
     self.attack_cooldown = 60
@@ -81,11 +81,9 @@ class Enemy(pygame.sprite.Sprite, Entity, EntitySound):
       # can return to patrol seamlessly after losing the aggro state
       self.patrol_index = 120 if self.direction == 'left' else 0
     
-  def get_aggro(self, player: Player) -> bool:
+  def get_aggro(self, player: Player) -> tuple:
 
     if not self.dead_lock:
-      # Smooth chasing step
-      chase_step = 0.1
 
       # Aggro rects
       aggro_rect_1 = pygame.Rect(self.rect.left, 
@@ -96,24 +94,18 @@ class Enemy(pygame.sprite.Sprite, Entity, EntitySound):
                             self.rect.top, 
                             self.rect.width + aggro_tolerance_zone, 
                             self.rect.height)
-      
+
+      # Attaching the aggro rects to the player's rect edges      
       aggro_rect_1.right = self.rect.left
       aggro_rect_2.left = self.rect.right
 
-      if aggro_rect_1.colliderect(player.rect) and not player.dead_lock:
-        # Smoothly chase left
-        self.movement[0] -= chase_step
-        if self.movement[0] < -1:
-          self.movement[0] = -1
-        return True
-      elif aggro_rect_2.colliderect(player.rect) and not player.dead_lock:
-        # Smoothly chase right
-        self.movement[0] += chase_step
-        if self.movement[0] > 1:
-          self.movement[0] = 1 
-        return True
+      aggroed_left = aggro_rect_1.colliderect(player.rect) and not player.dead_lock
+      aggroed_right = aggro_rect_2.colliderect(player.rect) and not player.dead_lock
 
-    return False
+      return aggroed_left, aggroed_right
+
+    # If enemy is dead, no aggro is created
+    return False, False
 
     
   def chase_player(self, player: Player, screen: pygame.Surface) -> None:
@@ -123,17 +115,32 @@ class Enemy(pygame.sprite.Sprite, Entity, EntitySound):
 
     # Render the aggro pointer on top of the enemy
     aggro_pointer_rect = aggro_pointer.get_rect(midbottom = self.rect.midtop)
+    aggro_pointer_rect.top -= 10
     screen.blit(aggro_pointer, aggro_pointer_rect)
 
     # Serves the purpose of letting the enemy know when to call self.attack()
     can_atk_l = player.rect.right >= self.rect.left - attack_length and player.rect.right <= self.rect.left
     can_atk_r = player.rect.left <= self.rect.right + attack_length and player.rect.left >= self.rect.right
 
-    if self.direction == 'left':
-      self.movement[0] = -1
-    elif self.direction == 'right':
-      self.movement[0] = 1
+    # Smooth chasing step
+    chase_step = 0.1
 
+    # Destructuring the aggro directions
+    aggroed_left, aggroed_right = self.aggro
+
+    # Smoothly chase left
+    if aggroed_left:
+      self.movement[0] -= chase_step
+      if self.movement[0] < -1:
+        self.movement[0] = -1
+
+    # Smoothly chase right
+    elif aggroed_right:
+      self.movement[0] += chase_step
+      if self.movement[0] > 1:
+        self.movement[0] = 1 
+
+    # If enemy can attack
     if can_atk_l or can_atk_r:
       self.refresh_cooldown()
       self.movement[0] = 0
@@ -143,7 +150,6 @@ class Enemy(pygame.sprite.Sprite, Entity, EntitySound):
         self.attack_cooldown = 60
 
   def update(self, tile_list: list, player: Player, screen: pygame.Surface) -> None:
-
     # Gravity & collisions logic
     self.vertical_velocity += 1
     self.vertical_velocity = min(self.vertical_velocity, 15)
@@ -160,7 +166,7 @@ class Enemy(pygame.sprite.Sprite, Entity, EntitySound):
 
     self.direction = self.get_direction()
 
-    if self.aggro:
+    if self.aggro[0] or self.aggro[1]:
       self.chase_player(player, screen)
     else:
       self.patrol(collisions)

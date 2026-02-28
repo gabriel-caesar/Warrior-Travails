@@ -205,7 +205,7 @@ class Entity():
       self.rect = self.image.get_rect(midbottom = (self.pos[0], self.pos[1]))
       
 
-  def combat(self, enemies_list: list[Enemy]) -> None:
+  def combat(self, enemies_list: list) -> None:
     if self.attacking:      
       # Handling the swing sounds
       swingsounds = self.sounds['swingsound']
@@ -228,7 +228,6 @@ class Entity():
         self.attack_hitbox = pygame.Rect(self.pos[0], self.pos[1], attack_width, attack_height)
         self.attack_hitbox.right = self.rect.left
         hit_from = 1
-
 
       # Loop through every enemy to find out which one is being attacked
       for defender in enemies_list:
@@ -292,8 +291,10 @@ class Entity():
   def get_direction(self) -> str:
     if self.movement[0] > 0:
       return 'right'
-    if self.movement[0] < 0:
+    elif self.movement[0] < 0:
       return 'left'
+    else:
+      return self.direction
     
   def out_of_bounds(self) -> list:
     updated_pos = self.pos
